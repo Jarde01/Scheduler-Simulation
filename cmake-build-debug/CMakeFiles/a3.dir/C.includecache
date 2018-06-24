@@ -1,0 +1,34 @@
+#IncludeRegexLine: ^[ 	]*#[ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/mnt/c/Users/Jeremy/OneDrive/Summer 2018/Comp3430_OS/a3/simulation.c
+string.h
+-
+sys/types.h
+-
+unistd.h
+-
+stdlib.h
+-
+stdio.h
+-
+stdio.h
+-
+stdlib.h
+-
+sys/time.h
+-
+time.h
+-
+stdbool.h
+-
+simulation.h
+/mnt/c/Users/Jeremy/OneDrive/Summer 2018/Comp3430_OS/a3/simulation.h
+
+/mnt/c/Users/Jeremy/OneDrive/Summer 2018/Comp3430_OS/a3/simulation.h
+

@@ -66,11 +66,13 @@ struct Process * new_process(char * tokens[]){
     io_odds = atoi(tokens[IO_ODDS]);
 
     process->name = malloc(sizeof(tokens[NAME]));
-    process->name = tokens[NAME];
+    process->name = malloc(sizeof(tokens[NAME]));
+    strcpy(process->name, tokens[NAME]);
     process->prio = get_priority(tokens[PRIORITY]);
     process->ttype = get_thread_type(tokens[THREAD_TYPE]);
     process->io_odds = io_odds;
     process->timeRemaining = processTime;
+    process->endTime = 0;
 
     return process;
 }
@@ -104,25 +106,28 @@ int tokenize(int schedulerType){
 
     }
 
-    /*
     // TODO Diagnostic tools, can delete
     int priorityRunningTime[3] = {0};
     int typeRunningTime[4] = {0};
+    int numPriorityProcesses[3] = {0};
+    int numTypeProcesses[4] = {0};
     int totalTimeForProcessing = 0;
     for (int u = 0; u<processNumber;u++){
+        numPriorityProcesses[processes[u]->prio] = numPriorityProcesses[processes[u]->prio]+1;
+        numTypeProcesses[processes[u]->ttype] = numTypeProcesses[processes[u]->ttype]+1;
+
         totalTimeForProcessing = totalTimeForProcessing+processes[u]->timeRemaining;
         priorityRunningTime[processes[u]->prio] = priorityRunningTime[processes[u]->prio] +processes[u]->timeRemaining;
         typeRunningTime[processes[u]->ttype] = typeRunningTime[processes[u]->ttype] +processes[u]->timeRemaining;
     }
-    print_priorityRunTime(priorityRunningTime);
+    /*print_priorityRunTime(priorityRunningTime);
     print_typeRunTime(typeRunningTime);
-    print_runTimeTotals(priorityRunningTime, typeRunningTime);
-    */
+    print_runTimeTotals(priorityRunningTime, typeRunningTime);*/
 
     // use the selected scheduler algorithm
     switch (schedulerType){
         case 1:
-            scheduler_round_robin(processes, processNumber);
+            scheduler_round_robin(processes, processNumber, numPriorityProcesses, numTypeProcesses);
             break;
         case 2:
             scheduler_priority_round_robin(processes, processNumber);
@@ -134,20 +139,21 @@ int tokenize(int schedulerType){
             scheduler_shortest_time_left_first(processes, processNumber);
             break;
         default:
-            scheduler_round_robin(processes, processNumber);
+            scheduler_round_robin(processes, processNumber, numPriorityProcesses, numTypeProcesses);
             break;
     }
 
     return 0;
 }
 
-int scheduler_round_robin(struct Process * processes[], int numProcesses){
+int scheduler_round_robin(struct Process * processes[], int numProcesses, int numPrioProc[], int numTypeProc[]){
     struct Process * p = NULL;
     struct Process * beginningPtr = *processes;
     int priorityRunningTime[3] = {0};
     int typeRunningTime[4] = {0};
     int ioTime = 0;
     int ioChance;
+    int totalRunTime = 0;
     time_t t;
     srand((unsigned) time(&t)); //init random number generator
 
@@ -179,19 +185,19 @@ int scheduler_round_robin(struct Process * processes[], int numProcesses){
 
                     p->timeRemaining = p->timeRemaining - ioTime;
                 }
+                totalRunTime = totalRunTime+TIME_SLICE;
 
                 // determine if the program is complete or not
                 if (p->timeRemaining <= 0) {
                     programsLeft = programsLeft - 1;
+                    p->endTime = totalRunTime;
                 }
             }
         }
     }
 
-    print_priorityRunTime(priorityRunningTime);
-    print_typeRunTime(typeRunningTime);
-    printf("\nPriority Total: %i\nType Total: %i\n", priorityRunningTime[0]+priorityRunningTime[1]+priorityRunningTime[2], typeRunningTime[0]+typeRunningTime[1]+typeRunningTime[2]+typeRunningTime[3]);
-}
+    print_schedulerStats(processes, numProcesses);
+ }
 
 int scheduler_priority_round_robin(struct Process * processes[], int numProcesses){
     struct Process * p = NULL;
@@ -202,6 +208,7 @@ int scheduler_priority_round_robin(struct Process * processes[], int numProcesse
     int ioChance;
     bool done;
     int loopCount = 0;
+    int totalRunTime = 0;
     time_t t;
     srand((unsigned) time(&t)); //init random number generator
 
@@ -238,8 +245,11 @@ int scheduler_priority_round_robin(struct Process * processes[], int numProcesse
                     p->timeRemaining = p->timeRemaining - ioTime;
                 }
 
+                totalRunTime = totalRunTime+TIME_SLICE;
+
                 // determine if the program is complete or not
                 if (p->timeRemaining <= 0) {
+                    p->endTime = totalRunTime;
                     programsLeft[p->prio] = programsLeft[p->prio] - 1;
 
                     if (programsLeft[currentPriorityLevel] <= 0){
@@ -253,63 +263,70 @@ int scheduler_priority_round_robin(struct Process * processes[], int numProcesse
         }
     }
 
+    print_schedulerStats(processes, numProcesses);
+    /*
     print_priorityRunTime(priorityRunningTime);
     print_typeRunTime(typeRunningTime);
-    print_runTimeTotals(priorityRunningTime, typeRunningTime);
+    print_runTimeTotals(priorityRunningTime, typeRunningTime);*/
 }
 
 int scheduler_shortest_job_first(struct Process * processes[], int numProcesses){
-    struct Process * temp = NULL;
-    struct Process * beggingPtr = *processes;
+    char * tempProcess[] = {"name", "1", "1", "99999", "99"};
+    struct Process * shortestRemTimeProcess = new_process(tempProcess);
+    struct Process * currLowestTimePrcc = NULL;
     int ioTime = 0;
     int ioChance = 0;
     int priorityRunningTime[3] = {0};
     int typeRunningTime[4] = {0};
+    int totalRunTime = 0;
 
     printf("\n=== Shortest Job First Scheduler ===\n");
 
     // sort the jobs
-    for (int i = 0; i < numProcesses; ++i)
-    {
-        for (int j = i + 1; j < numProcesses; ++j)
-        {
-            if (processes[i]->timeRemaining > processes[j]->timeRemaining)
-            {
-                temp =  processes[i];
-                processes[i] = processes[j];
-                processes[j] = temp;
-            }
-        }
-    }
-
-    // go back to the beginning
-    *processes = beggingPtr;
+    sort_ascending(processes, numProcesses);
 
     for ( int i = 0; i< numProcesses; i++){
-        while ( processes[i]->timeRemaining>0){
+        currLowestTimePrcc = shortestRemTimeProcess;
+        // search for the shortest process
+        for (int u = 0; u<numProcesses; u++){
+            // find the new lowest process
+            if (processes[u]->timeRemaining>0 && processes[u]->timeRemaining < currLowestTimePrcc->timeRemaining)
+                currLowestTimePrcc = processes[u];
+        }
+
+        // do work for the whole process in one go
+        while ( currLowestTimePrcc->timeRemaining>0){
             ioTime = 0;
             ioChance = rand() % 100;
-            if (ioChance < processes[i]->io_odds) {
+            if (ioChance < currLowestTimePrcc->io_odds) {
                 ioTime = rand() % TIME_SLICE; //determine length of time to run extra
             }
             // determine how long process will run extra, and add to stats
             if ( ioTime == 0) {
-                priorityRunningTime[processes[i]->prio] = priorityRunningTime[processes[i]->prio] + TIME_SLICE;
-                typeRunningTime[processes[i]->ttype] = typeRunningTime[processes[i]->ttype] + TIME_SLICE;
+                priorityRunningTime[currLowestTimePrcc->prio] = priorityRunningTime[currLowestTimePrcc->prio] + TIME_SLICE;
+                typeRunningTime[currLowestTimePrcc->ttype] = typeRunningTime[currLowestTimePrcc->ttype] + TIME_SLICE;
 
-                processes[i]->timeRemaining = processes[i]->timeRemaining - TIME_SLICE;
+                currLowestTimePrcc->timeRemaining = currLowestTimePrcc->timeRemaining - TIME_SLICE;
             }
             else {
-                priorityRunningTime[processes[i]->prio] = priorityRunningTime[processes[i]->prio] + ioTime;
-                typeRunningTime[processes[i]->ttype] = typeRunningTime[processes[i]->ttype] + ioTime;
+                priorityRunningTime[currLowestTimePrcc->prio] = priorityRunningTime[currLowestTimePrcc->prio] + ioTime;
+                typeRunningTime[currLowestTimePrcc->ttype] = typeRunningTime[currLowestTimePrcc->ttype] + ioTime;
 
-                processes[i]->timeRemaining = processes[i]->timeRemaining - ioTime;
+                currLowestTimePrcc->timeRemaining = currLowestTimePrcc->timeRemaining - ioTime;
             }
+
+            totalRunTime = totalRunTime+TIME_SLICE;
         }
+
+        currLowestTimePrcc->endTime = totalRunTime;
+
     }
 
+    print_schedulerStats(processes, numProcesses);
+    /*
     print_priorityRunTime(priorityRunningTime);
     print_typeRunTime(typeRunningTime);
+*/
 }
 
 int scheduler_shortest_time_left_first(struct Process * processes[], int numProcesses){
@@ -324,6 +341,7 @@ int scheduler_shortest_time_left_first(struct Process * processes[], int numProc
     int typeRunningTime[4] = {0};
     int programsCompleted = 0;
     bool foundProcess = false;
+    int totalRunTime = 0;
 
     printf("\n=== Shortest Time Remaining Scheduler ===\n");
 
@@ -370,10 +388,13 @@ int scheduler_shortest_time_left_first(struct Process * processes[], int numProc
                 p->timeRemaining = p->timeRemaining - ioTime;
             }
 
+            totalRunTime = totalRunTime+TIME_SLICE;
+
             // determine if the program is complete or not
             if (p->timeRemaining <= 0){
                 //printf("complete program %i, %s, %i \n", programsCompleted, p->name, p->timeRemaining);
                 programsCompleted = programsCompleted + 1;
+                p->endTime = totalRunTime;
             }
 
             // get a new job from the processes list
@@ -382,11 +403,12 @@ int scheduler_shortest_time_left_first(struct Process * processes[], int numProc
         }
     }
 
-    *processes = beginningPtr;
+    //*processes = beginningPtr;
     //print_allProcess(processes, numProcesses);
 
-    print_priorityRunTime(priorityRunningTime);
-    print_typeRunTime(typeRunningTime);
+    print_schedulerStats(processes, numProcesses);
+    //print_priorityRunTime(priorityRunningTime);
+    //print_typeRunTime(typeRunningTime);
 }
 
 void print_allProcess( struct Process * processes[], int numProcesses ){
@@ -410,6 +432,47 @@ void sort_ascending(struct Process * processes[], int numProcesses) {
             }
         }
     }
+}
+
+void print_schedulerStats(struct Process * endProcesses[], int numProcesses){
+    int priorityRunningTime[3] = {0};
+    int typeRunningTime[4] = {0};
+    int numPriorityProcesses[3] = {0};
+    int numTypeProcesses[4] = {0};
+    int totalTimeForProcessing = 0;
+    struct Process * p = NULL;
+
+    for (int u = 0; u<numProcesses;u++){
+        p = endProcesses[u];
+        if ( totalTimeForProcessing < endProcesses[u]->endTime)
+            totalTimeForProcessing = endProcesses[u]->endTime;
+
+        // count number of processes in the prio and type groups
+        numPriorityProcesses[endProcesses[u]->prio] = numPriorityProcesses[endProcesses[u]->prio]+1;
+        numTypeProcesses[endProcesses[u]->ttype] = numTypeProcesses[endProcesses[u]->ttype]+1;
+
+        // get the stats for ending times
+        priorityRunningTime[endProcesses[u]->prio] = priorityRunningTime[endProcesses[u]->prio] +endProcesses[u]->endTime;
+        typeRunningTime[endProcesses[u]->ttype] = typeRunningTime[endProcesses[u]->ttype] +endProcesses[u]->endTime;
+    }
+
+    printf("Priority 0 avg run time: %i\nPriority 1 avg run time: "
+           "%i\nPriority 2 avg run time: %i\n",
+           priorityRunningTime[0]/numPriorityProcesses[0],
+           priorityRunningTime[1]/numPriorityProcesses[1],
+           priorityRunningTime[2]/numPriorityProcesses[2] );
+
+    printf("\nType 0 avg run time: %i\nType 1 avg run time: "
+           "%i\nType 2 avg run time: %i\nType 3 avg run time: %i\n",
+           typeRunningTime[0]/numTypeProcesses[0],
+           typeRunningTime[1]/numTypeProcesses[1],
+           typeRunningTime[2]/numTypeProcesses[2],
+           typeRunningTime[3]/numTypeProcesses[3]);
+
+    printf("\nAverage Run time per process: %i\n",
+           (priorityRunningTime[0]+priorityRunningTime[1]+priorityRunningTime[2])/numProcesses);
+
+    printf("===================================\n");
 }
 
 void print_runTimeTotals(int priorityRunningTime[], int typeRunningTime[]){
