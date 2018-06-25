@@ -124,6 +124,9 @@ int tokenize(int schedulerType){
     print_typeRunTime(typeRunningTime);
     print_runTimeTotals(priorityRunningTime, typeRunningTime);*/
 
+    // shuffle the process list
+    shuffle(processes, processNumber);
+
     // use the selected scheduler algorithm
     switch (schedulerType){
         case 1:
@@ -274,51 +277,69 @@ int scheduler_shortest_job_first(struct Process * processes[], int numProcesses)
     char * tempProcess[] = {"name", "1", "1", "99999", "99"};
     struct Process * shortestRemTimeProcess = new_process(tempProcess);
     struct Process * currLowestTimePrcc = NULL;
+    struct Process * beginningPtr = *processes;
+    struct Process * shortestProcess = NULL;
+    struct Process * curr = NULL;
     int ioTime = 0;
     int ioChance = 0;
     int priorityRunningTime[3] = {0};
     int typeRunningTime[4] = {0};
     int totalRunTime = 0;
+    int knownProcesses = 1;
+    int programsCompleted = 0;
+    time_t t;
+    srand((unsigned) time(&t)); //init random number generator
 
     printf("\n=== Shortest Job First Scheduler ===\n");
 
-    // sort the jobs
-    sort_ascending(processes, numProcesses);
+    while (programsCompleted < numProcesses){
+        *processes = beginningPtr;
 
-    for ( int i = 0; i< numProcesses; i++){
-        currLowestTimePrcc = shortestRemTimeProcess;
-        // search for the shortest process
-        for (int u = 0; u<numProcesses; u++){
-            // find the new lowest process
-            if (processes[u]->timeRemaining>0 && processes[u]->timeRemaining < currLowestTimePrcc->timeRemaining)
-                currLowestTimePrcc = processes[u];
+        // search for the first non negative time remaining
+        shortestProcess = shortestRemTimeProcess;
+
+        // we assume we are getting a new job every time slice, and search for the shortest one
+        for ( int k = 0; k< knownProcesses; k++) {
+            if (processes[k]->timeRemaining > 0 ){
+                curr = processes[k];
+
+                // find the shortest job with non-zero time remaining
+                if ( curr->timeRemaining >0 && curr->timeRemaining < shortestProcess->timeRemaining)
+                    shortestProcess = curr;
+            }
         }
 
         // do work for the whole process in one go
-        while ( currLowestTimePrcc->timeRemaining>0){
+        while ( shortestProcess->timeRemaining>0){
             ioTime = 0;
             ioChance = rand() % 100;
-            if (ioChance < currLowestTimePrcc->io_odds) {
+            if (ioChance < shortestProcess->io_odds) {
                 ioTime = rand() % TIME_SLICE; //determine length of time to run extra
             }
             // determine how long process will run extra, and add to stats
             if ( ioTime == 0) {
-                priorityRunningTime[currLowestTimePrcc->prio] = priorityRunningTime[currLowestTimePrcc->prio] + TIME_SLICE;
-                typeRunningTime[currLowestTimePrcc->ttype] = typeRunningTime[currLowestTimePrcc->ttype] + TIME_SLICE;
+                priorityRunningTime[shortestProcess->prio] = priorityRunningTime[shortestProcess->prio] + TIME_SLICE;
+                typeRunningTime[shortestProcess->ttype] = typeRunningTime[shortestProcess->ttype] + TIME_SLICE;
 
-                currLowestTimePrcc->timeRemaining = currLowestTimePrcc->timeRemaining - TIME_SLICE;
+                shortestProcess->timeRemaining = shortestProcess->timeRemaining - TIME_SLICE;
             }
             else {
-                priorityRunningTime[currLowestTimePrcc->prio] = priorityRunningTime[currLowestTimePrcc->prio] + ioTime;
-                typeRunningTime[currLowestTimePrcc->ttype] = typeRunningTime[currLowestTimePrcc->ttype] + ioTime;
+                priorityRunningTime[shortestProcess->prio] = priorityRunningTime[shortestProcess->prio] + ioTime;
+                typeRunningTime[shortestProcess->ttype] = typeRunningTime[shortestProcess->ttype] + ioTime;
 
-                currLowestTimePrcc->timeRemaining = currLowestTimePrcc->timeRemaining - ioTime;
+                shortestProcess->timeRemaining = shortestProcess->timeRemaining - ioTime;
             }
 
             totalRunTime = totalRunTime+TIME_SLICE;
+
+
+            // get a new job from the processes list
+            if (knownProcesses<numProcesses-1)
+                knownProcesses = knownProcesses+1;
         }
 
-        currLowestTimePrcc->endTime = totalRunTime;
+        programsCompleted = programsCompleted+1;
+        shortestProcess->endTime = totalRunTime;
 
     }
 
@@ -342,6 +363,8 @@ int scheduler_shortest_time_left_first(struct Process * processes[], int numProc
     int programsCompleted = 0;
     bool foundProcess = false;
     int totalRunTime = 0;
+    time_t t;
+    srand((unsigned) time(&t)); //init random number generator
 
     printf("\n=== Shortest Time Remaining Scheduler ===\n");
 
@@ -356,7 +379,7 @@ int scheduler_shortest_time_left_first(struct Process * processes[], int numProc
             pLoc = pLoc+1;
         }
 
-        // we assume we are getting a new job every time slice
+        // we assume we are getting a new job every time slice, and search for the shortest one
         for ( int k = 0; k< knownProcesses-1; k++) {
             if (processes[k]->timeRemaining > 0 ){
                 curr = processes[k];
@@ -417,6 +440,26 @@ void print_allProcess( struct Process * processes[], int numProcesses ){
     }
 }
 
+static void shuffle(struct Process * processes[], int numProcesses) {
+    struct Process * temp = NULL;
+
+    for (int i = 0; i < numProcesses; ++i)
+    {
+        for (int j = i + 1; j < numProcesses; ++j)
+        {
+            if (processes[i]->timeRemaining > processes[j]->timeRemaining)
+            {
+                size_t rnd = (size_t) rand();
+                size_t j = i + rnd / (RAND_MAX / (numProcesses - i) + 1);
+
+                temp =  processes[i];
+                processes[i] = processes[j];
+                processes[j] = temp;
+            }
+        }
+    }
+}
+
 void sort_ascending(struct Process * processes[], int numProcesses) {
     struct Process * temp = NULL;
 
@@ -473,6 +516,20 @@ void print_schedulerStats(struct Process * endProcesses[], int numProcesses){
            (priorityRunningTime[0]+priorityRunningTime[1]+priorityRunningTime[2])/numProcesses);
 
     printf("===================================\n");
+
+    //Used for stats gathering...
+
+    printf("\n%i\n%i\n%i\n",
+           priorityRunningTime[0]/numPriorityProcesses[0],
+           priorityRunningTime[1]/numPriorityProcesses[1],
+           priorityRunningTime[2]/numPriorityProcesses[2] );
+
+    printf("\n%i\n%i\n%i\n%i\n",
+           typeRunningTime[0]/numTypeProcesses[0],
+           typeRunningTime[1]/numTypeProcesses[1],
+           typeRunningTime[2]/numTypeProcesses[2],
+           typeRunningTime[3]/numTypeProcesses[3]);
+
 }
 
 void print_runTimeTotals(int priorityRunningTime[], int typeRunningTime[]){

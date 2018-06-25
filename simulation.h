@@ -30,7 +30,6 @@ struct Process {
     char * name;
     enum thread_type ttype;
     enum priority prio;
-    //char * priorityString;
     int timeRemaining;
     double io_odds;
     int endTime;
@@ -41,12 +40,13 @@ enum priority get_priority(char * priorityString);
 struct Process * new_process(char * tokens[]);
 int tokenize(int args);
 int scheduler_round_robin(struct Process * processes[], int numProcesses, int numPrioProc[], int numTypeProc[]);
-//int scheduler_round_robin(struct Process * processes[], int numProcesses);
 int scheduler_priority_round_robin(struct Process * processes[], int numProcesses);
 int scheduler_shortest_job_first(struct Process * shortestRemTimeProcess[], int numProcesses);
 int scheduler_shortest_time_left_first(struct Process * processes[], int numProcesses);
 
+static void shuffle(struct Process * processes[], int numProcesses);
 void sort_ascending(struct Process * processes[], int numProcesses);
+
 void print_allProcess( struct Process * processes[], int numProcesses );
 void print_schedulerStats(struct Process * endProcesses[], int numProcesses);
 void print_typeRunTime(int typeRunTime[]);
