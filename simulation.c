@@ -79,7 +79,7 @@ struct Process * new_process(char * tokens[]){
 }
 
 int tokenize(int schedulerType){
-    struct Process * processes[255];
+    struct Process * processes[1000];
     char * tokens[30];
     char buffer[255];
     FILE *fp;
@@ -121,9 +121,6 @@ int tokenize(int schedulerType){
         priorityRunningTime[processes[u]->prio] = priorityRunningTime[processes[u]->prio] +processes[u]->timeRemaining;
         typeRunningTime[processes[u]->ttype] = typeRunningTime[processes[u]->ttype] +processes[u]->timeRemaining;
     }
-    /*print_priorityRunTime(priorityRunningTime);
-    print_typeRunTime(typeRunningTime);
-    print_runTimeTotals(priorityRunningTime, typeRunningTime);*/
 
     // shuffle the process list
     shuffle(processes, processNumber);
@@ -131,7 +128,7 @@ int tokenize(int schedulerType){
     // use the selected scheduler algorithm
     switch (schedulerType){
         case 1:
-            scheduler_round_robin(processes, processNumber, numPriorityProcesses, numTypeProcesses);
+            scheduler_round_robin(processes, processNumber);
             break;
         case 2:
             scheduler_priority_round_robin(processes, processNumber);
@@ -143,14 +140,14 @@ int tokenize(int schedulerType){
             scheduler_shortest_time_left_first(processes, processNumber);
             break;
         default:
-            scheduler_round_robin(processes, processNumber, numPriorityProcesses, numTypeProcesses);
+            scheduler_round_robin(processes, processNumber);
             break;
     }
 
     return 0;
 }
 
-int scheduler_round_robin(struct Process * processes[], int numProcesses, int numPrioProc[], int numTypeProc[]){
+int scheduler_round_robin(struct Process * processes[], int numProcesses){
     struct Process * p = NULL;
     struct Process * beginningPtr = *processes;
     int priorityRunningTime[3] = {0};
@@ -275,10 +272,6 @@ int scheduler_priority_round_robin(struct Process * processes[], int numProcesse
     }
 
     print_schedulerStats(processes, numProcesses);
-    /*
-    print_priorityRunTime(priorityRunningTime);
-    print_typeRunTime(typeRunningTime);
-    print_runTimeTotals(priorityRunningTime, typeRunningTime);*/
 }
 
 int scheduler_shortest_job_first(struct Process * processes[], int numProcesses){
@@ -356,10 +349,6 @@ int scheduler_shortest_job_first(struct Process * processes[], int numProcesses)
     }
 
     print_schedulerStats(processes, numProcesses);
-    /*
-    print_priorityRunTime(priorityRunningTime);
-    print_typeRunTime(typeRunningTime);
-*/
 }
 
 int scheduler_shortest_time_left_first(struct Process * processes[], int numProcesses){
@@ -442,12 +431,7 @@ int scheduler_shortest_time_left_first(struct Process * processes[], int numProc
         }
     }
 
-    //*processes = beginningPtr;
-    //print_allProcess(processes, numProcesses);
-
     print_schedulerStats(processes, numProcesses);
-    //print_priorityRunTime(priorityRunningTime);
-    //print_typeRunTime(typeRunningTime);
 }
 
 void print_allProcess( struct Process * processes[], int numProcesses ){
@@ -545,7 +529,8 @@ void print_schedulerStats(struct Process * endProcesses[], int numProcesses){
     fprintf(fp, "%d\n", typeRunningTime[1]/numTypeProcesses[1]);
     fprintf(fp, "%d\n", typeRunningTime[2]/numTypeProcesses[2]);
     fprintf(fp, "%d\n", typeRunningTime[3]/numTypeProcesses[3]);
-    fclose(fp);*/
+    fclose(fp);
+    */
 }
 
 void print_runTimeTotals(int priorityRunningTime[], int typeRunningTime[]){
