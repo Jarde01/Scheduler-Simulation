@@ -33,6 +33,7 @@ struct Process {
     int timeRemaining;
     double io_odds;
     int endTime;
+    int startTime;
 };
 
 enum thread_type get_thread_type(char * typeString);
